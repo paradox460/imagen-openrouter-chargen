@@ -102,6 +102,13 @@ const state = {
 
 // ===== Model Configurations =====
 const MODEL_CONFIGS = {
+    'x-ai/grok-imagine-image-quality': {
+        name: 'Grok Imagine Image Quality',
+        supportsImageSize: true,
+        supportsAspectRatio: true,
+        supportsImageInput: true,
+        maxReferences: 8
+    },
     'google/gemini-2.5-flash-image': {
         name: 'Gemini 2.5 Flash Image',
         supportsImageSize: true,
