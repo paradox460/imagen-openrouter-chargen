@@ -251,6 +251,7 @@ const elements = {
     gallery: document.getElementById('gallery'),
     galleryEmpty: document.getElementById('galleryEmpty'),
     clearGallery: document.getElementById('clearGallery'),
+    downloadAll: document.getElementById('downloadAll'),
 
     // Modal
     imageModal: document.getElementById('imageModal'),
@@ -437,6 +438,34 @@ function setupEventListeners() {
             showToast('Gallery cleared', 'success');
         }
     });
+
+    // Download all images
+    elements.downloadAll.addEventListener('click', downloadAllImages);
+
+    // Expression selector modal
+    elements.expressionsArrow.addEventListener('click', () => {
+        elements.expressionModal.classList.add('active');
+    });
+    elements.expressionModalOverlay.addEventListener('click', () => {
+        elements.expressionModal.classList.remove('active');
+    });
+    elements.expressionModalClose.addEventListener('click', () => {
+        elements.expressionModal.classList.remove('active');
+    });
+    elements.expressionsSelectAll.addEventListener('click', () => {
+        elements.expressionGrid.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = true);
+    });
+    elements.expressionsDeselectAll.addEventListener('click', () => {
+        elements.expressionGrid.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+    });
+    elements.expressionModalDone.addEventListener('click', () => {
+        state.selectedExpressions = new Set(
+            [...elements.expressionGrid.querySelectorAll('input[type="checkbox"]:checked')]
+                .map(cb => cb.value)
+        );
+        elements.expressionModal.classList.remove('active');
+    });
+    renderExpressionGrid();
 
     // Modal
     elements.modalOverlay.addEventListener('click', closeModal);
@@ -1287,8 +1316,48 @@ function downloadImageByIndex(index) {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    showToast('Image downloaded', 'success');
+    showToast('Download started', 'success');
 }
+
+async function downloadAllImages() {
+    if (state.images.length === 0) {
+        showToast('No images to download', 'warning');
+        return;
+    }
+
+    showToast('Preparing zip archive...', 'success');
+
+    // Clean up any previous download links
+    document.querySelectorAll('.download-zip-link').forEach(el => {
+        URL.revokeObjectURL(el.href);
+        el.remove();
+    });
+
+    const zip = new JSZip();
+
+    for (let i = 0; i < state.images.length; i++) {
+        const image = state.images[i];
+        const ext = getImageExtension(image.url);
+        const filename = image.expression
+            ? `${image.expression}-${image.expressionIndex || 1}.${ext}`
+            : `imagen-${new Date(image.createdAt).toISOString().replace(/[:.]/g, '-')}.${ext}`;
+
+        const response = await fetch(image.url);
+        const blob = await response.blob();
+        zip.file(filename, blob);
+    }
+
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(zipBlob);
+    const a = document.createElement('a');
+    a.className = 'download-zip-link';
+    a.href = url;
+    a.download = `imagen-images-${Date.now()}.zip`;
+    document.body.appendChild(a);
+    a.click();
+    showToast(`Downloaded ${state.images.length} image(s) as zip`, 'success');
+}
+
 
 function addImageAsReference(index) {
     const image = state.images[index];
