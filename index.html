@@ -110,6 +110,19 @@
                 <input type="password" id="apiKey" placeholder="sk-or-..." class="text-input">
                 <button type="button" class="btn btn-ghost" id="saveApiKey">Save Key</button>
             </div>
+
+            <!-- Expressions Profile -->
+            <div class="config-section">
+                <h3>Expressions Profile</h3>
+                <div class="profile-controls">
+                    <label class="btn btn-ghost profile-load-btn">
+                        Load Profile
+                        <input type="file" id="profileFileInput" accept=".json" style="display:none">
+                    </label>
+                    <button type="button" class="btn btn-ghost" id="resetProfile" style="display:none">Reset to Default</button>
+                </div>
+                <div class="profile-name" id="profileName">Built-in</div>
+            </div>
         </aside>
 
         <!-- Main Content -->

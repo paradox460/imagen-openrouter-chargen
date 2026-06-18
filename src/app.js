@@ -98,18 +98,76 @@ const state = {
     images: [], // Will be loaded from IndexedDB
     currentImage: null,
     pendingBatches: [], // Track pending generation batches { id, prompt, count, completed, failed }
-    selectedExpressions: new Set() // populated after EXPRESSIONS is defined
+    selectedExpressions: new Set(), // populated after expressions are defined
+    loadedProfileName: null // name of currently loaded expressions-plus profile, null = built-in
 };
 
-const EXPRESSIONS = [
-    'admiration', 'amusement', 'anger', 'annoyance', 'approval',
-    'caring', 'confusion', 'curiosity', 'desire', 'disappointment',
-    'disapproval', 'disgust', 'embarrassment', 'excitement', 'fear',
-    'gratitude', 'grief', 'joy', 'love', 'nervousness',
-    'neutral', 'optimism', 'pride', 'relief', 'remorse', 'realization',
-    'retaliation', 'sadness', 'surprise'
+// Default expressions (built-in) - simple type only
+const DEFAULT_EXPRESSIONS = [
+    { name: 'admiration', type: 'simple' },
+    { name: 'amusement', type: 'simple' },
+    { name: 'anger', type: 'simple' },
+    { name: 'annoyance', type: 'simple' },
+    { name: 'approval', type: 'simple' },
+    { name: 'caring', type: 'simple' },
+    { name: 'confusion', type: 'simple' },
+    { name: 'curiosity', type: 'simple' },
+    { name: 'desire', type: 'simple' },
+    { name: 'disappointment', type: 'simple' },
+    { name: 'disapproval', type: 'simple' },
+    { name: 'disgust', type: 'simple' },
+    { name: 'embarrassment', type: 'simple' },
+    { name: 'excitement', type: 'simple' },
+    { name: 'fear', type: 'simple' },
+    { name: 'gratitude', type: 'simple' },
+    { name: 'grief', type: 'simple' },
+    { name: 'joy', type: 'simple' },
+    { name: 'love', type: 'simple' },
+    { name: 'nervousness', type: 'simple' },
+    { name: 'neutral', type: 'simple' },
+    { name: 'optimism', type: 'simple' },
+    { name: 'pride', type: 'simple' },
+    { name: 'relief', type: 'simple' },
+    { name: 'remorse', type: 'simple' },
+    { name: 'realization', type: 'simple' },
+    { name: 'retaliation', type: 'simple' },
+    { name: 'sadness', type: 'simple' },
+    { name: 'surprise', type: 'simple' }
 ];
-state.selectedExpressions = new Set(EXPRESSIONS);
+
+// Active expressions - replaced when a profile is loaded
+let activeExpressions = [...DEFAULT_EXPRESSIONS];
+state.selectedExpressions = new Set(activeExpressions.map(e => e.name));
+
+/**
+ * Load an expressions-plus profile JSON, replacing active expressions.
+ * Returns the profile name on success, or throws on invalid format.
+ */
+function loadExpressionsProfile(profileJson) {
+    const data = typeof profileJson === 'string' ? JSON.parse(profileJson) : profileJson;
+    if (!data.profile || !Array.isArray(data.profile.rules)) {
+        throw new Error('Invalid expressions-plus profile format');
+    }
+    const rules = data.profile.rules
+        .filter(r => r.enabled !== false)
+        .map(r => ({
+            name: r.name,
+            type: r.type || 'simple'
+        }));
+    activeExpressions = rules;
+    state.selectedExpressions = new Set(rules.map(r => r.name));
+    state.loadedProfileName = data.profile.name || 'Custom';
+    renderExpressionGrid();
+    return state.loadedProfileName;
+}
+
+/** Reset to built-in default expressions */
+function resetExpressionsProfile() {
+    activeExpressions = [...DEFAULT_EXPRESSIONS];
+    state.selectedExpressions = new Set(activeExpressions.map(e => e.name));
+    state.loadedProfileName = null;
+    renderExpressionGrid();
+}
 // ===== Model Configurations =====
 const MODEL_CONFIGS = {
     'x-ai/grok-imagine-image-quality': {
@@ -234,6 +292,9 @@ const elements = {
     increaseCount: document.getElementById('increaseCount'),
     clearReferences: document.getElementById('clearReferences'),
     referenceSlots: document.getElementById('referenceSlots'),
+    profileFileInput: document.getElementById('profileFileInput'),
+    resetProfile: document.getElementById('resetProfile'),
+    profileName: document.getElementById('profileName'),
 
     // Main Content
     promptInput: document.getElementById('promptInput'),
@@ -413,6 +474,31 @@ function setupEventListeners() {
 
     // Reference images are handled by renderReferenceSlots()
     elements.clearReferences.addEventListener('click', clearAllReferences);
+
+    // Expressions profile loading
+    elements.profileFileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            try {
+                const name = loadExpressionsProfile(ev.target.result);
+                elements.profileName.textContent = name;
+                elements.resetProfile.style.display = '';
+                showToast(`Loaded profile: ${name}`, 'success');
+            } catch (err) {
+                showToast('Invalid profile file: ' + err.message, 'error');
+            }
+        };
+        reader.readAsText(file);
+        e.target.value = ''; // reset so same file can be re-loaded
+    });
+    elements.resetProfile.addEventListener('click', () => {
+        resetExpressionsProfile();
+        elements.profileName.textContent = 'Built-in';
+        elements.resetProfile.style.display = 'none';
+        showToast('Reset to built-in expressions', 'success');
+    });
 
     // Drag & Drop for reference images
     setupDragAndDrop();
@@ -678,7 +764,7 @@ async function generateImages() {
 
     // Expression mode: expand {{expression}} into batch generations
     if (elements.expressionsToggle && elements.expressionsToggle.checked) {
-        const selected = EXPRESSIONS.filter(e => state.selectedExpressions.has(e));
+        const selected = activeExpressions.filter(e => state.selectedExpressions.has(e.name));
         const totalCount = selected.length * imageCount;
         const exprBatchId = Date.now() + Math.random();
         const exprBatch = {
@@ -698,9 +784,10 @@ async function generateImages() {
             ? prompt
             : prompt + '\n\nGenerate an image for the expression {{expression}}';
         const promises = [];
-        for (const expr of selected) {
+        for (const exprObj of selected) {
+            const exprName = exprObj.name;
             for (let j = 0; j < imageCount; j++) {
-                const expressionPrompt = effectivePrompt.replaceAll('{{expression}}', expr);
+                const expressionPrompt = effectivePrompt.replaceAll('{{expression}}', exprName);
                 promises.push((async () => {
                     try {
                         const result = await generateSingleImage(expressionPrompt, modelConfig);
@@ -709,7 +796,7 @@ async function generateImages() {
                                 id: Date.now() + Math.random(),
                                 url: result,
                                 prompt: expressionPrompt,
-                                expression: expr,
+                                expression: exprName,
                                 expressionIndex: j + 1,
                                 model: currentModel,
                                 modelName: modelConfig.name,
@@ -954,12 +1041,30 @@ async function generateSingleImage(prompt, modelConfig) {
 }
 
 function renderExpressionGrid() {
-    elements.expressionGrid.innerHTML = EXPRESSIONS.map(expr => `
-        <label class="expression-grid-item">
-            <input type="checkbox" value="${expr}" ${state.selectedExpressions.has(expr) ? 'checked' : ''}>
-            ${expr}
-        </label>
-    `).join('');
+    const simple = activeExpressions.filter(e => e.type === 'simple');
+    const combination = activeExpressions.filter(e => e.type === 'combination');
+    let html = '';
+    if (simple.length > 0) {
+        html += '<div class="expression-group"><h4 class="expression-group-title">Simple</h4><div class="expression-group-items">';
+        html += simple.map(expr => `
+            <label class="expression-grid-item">
+                <input type="checkbox" value="${expr.name}" ${state.selectedExpressions.has(expr.name) ? 'checked' : ''}>
+                ${expr.name}
+            </label>
+        `).join('');
+        html += '</div></div>';
+    }
+    if (combination.length > 0) {
+        html += '<div class="expression-group"><h4 class="expression-group-title">Combination</h4><div class="expression-group-items">';
+        html += combination.map(expr => `
+            <label class="expression-grid-item">
+                <input type="checkbox" value="${expr.name}" ${state.selectedExpressions.has(expr.name) ? 'checked' : ''}>
+                ${expr.name}
+            </label>
+        `).join('');
+        html += '</div></div>';
+    }
+    elements.expressionGrid.innerHTML = html;
 }
 
 
