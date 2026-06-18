@@ -551,6 +551,17 @@ function setupEventListeners() {
         );
         elements.expressionModal.classList.remove('active');
     });
+
+    // Double-click expression group header to toggle all in that group
+    elements.expressionGrid.addEventListener('dblclick', (e) => {
+        const title = e.target.closest('.expression-group-title');
+        if (!title) return;
+        const items = title.parentElement.querySelector('.expression-group-items');
+        if (!items) return;
+        const checkboxes = items.querySelectorAll('input[type="checkbox"]');
+        const allChecked = [...checkboxes].every(cb => cb.checked);
+        checkboxes.forEach(cb => cb.checked = !allChecked);
+    });
     renderExpressionGrid();
 
     // Modal
