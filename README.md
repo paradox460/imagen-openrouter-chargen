@@ -5,9 +5,13 @@ A powerful client-side AI image generation tool using OpenRouter API. Generate t
 ![Imagen UI](assets/UI.webp)
 ![Imagen UI-1](assets/UI-1.webp)
 
+>[!NOTE]
+> This fork is designed for creating character expressions for the [SillyTavern AI RPG tool](https://sillytavern.app). It can still do all the base features of the original tool, but has a few extras, delineated by a 😜 (silly) emoji
+
 ## ✨ Features
 
 ### 🎨 Multi-Model Support
+- **Grok Imagine Image Quality 😜** - xAI's flagship image generation model
 - **Gemini 2.5 Flash Image** - Google's fast image generation
 - **Gemini 2.5 Flash (Preview)** - Preview version with latest features
 - **Gemini 3.1 Flash (Preview)** - Newer Gemini preview image model
@@ -22,6 +26,7 @@ A powerful client-side AI image generation tool using OpenRouter API. Generate t
 - **Resolution**: 1K, 2K, 4K (Gemini models)
 - **Aspect Ratios**: 1:1, 16:9, 9:16, 4:3, 3:4, 3:2
 - **Batch Generation**: Up to 8 images at once
+- **Expression mode 😜**: Generates images for specified expressions, based on [SillyTavern Character Expressions](https://docs.sillytavern.app/extensions/expression-images/). Generates $$n$$ images for each enabled expression
 
 ### 🖼️ Reference Image Support
 - Upload unlimited reference images
@@ -39,6 +44,7 @@ A powerful client-side AI image generation tool using OpenRouter API. Generate t
 - Delete individual images (hover to reveal 🗑️ button)
 - Click any image for full view + metadata
 - Clear entire gallery option
+- 😜 Download all images as zip
 
 ### ♻️ Recreate Feature
 - Click any image to restore its original settings
